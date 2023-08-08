@@ -1,4 +1,4 @@
-# attendance_front
+# WebXpert Attendance
 
 A new Flutter project.
 
