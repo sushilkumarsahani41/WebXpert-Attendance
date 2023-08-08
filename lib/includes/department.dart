@@ -100,8 +100,8 @@ class _DepartmentPageState extends State<DepartmentPage> {
                                     child: SizedBox(
                                       height: 200,
                                       width: 200,
-                                      child:
-                                          Lottie.asset("lottie/loading.json"),
+                                      child: Lottie.network(
+                                          "https://lottie.host/40b48fb5-6b33-42c9-84c2-db0d24a24ebe/P94JjyhGOK.json"),
                                     ),
                                   ),
                                 )
@@ -152,11 +152,17 @@ class _DepartmentPageState extends State<DepartmentPage> {
                                               ),
                                               Expanded(
                                                 flex: 1,
-                                                child: Text("No of Students"),
+                                                child: Text(snapshot
+                                                    .data!.docs[index]
+                                                    .data()["no_students"]
+                                                    .toString()),
                                               ),
                                               Expanded(
                                                 flex: 1,
-                                                child: Text("No of Devices"),
+                                                child: Text(snapshot
+                                                    .data!.docs[index]
+                                                    .data()["no_devices"]
+                                                    .toString()),
                                               ),
                                               Row(
                                                 children: [
@@ -547,7 +553,6 @@ class _DepartmentPageState extends State<DepartmentPage> {
                                             bottom: BorderSide(
                                                 color: Colors.grey, width: 1),
                                           ),
-                                          
                                         ),
                                         child: Row(
                                           mainAxisAlignment:

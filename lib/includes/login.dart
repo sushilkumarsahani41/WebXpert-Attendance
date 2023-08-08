@@ -26,7 +26,8 @@ class _LoginPageState extends State<LoginPage> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              Lottie.asset("lottie/login.json"),
+              Lottie.network(
+                  "https://lottie.host/7b6facf5-86bd-4b55-9c22-286a948cdfa1/izGuX7KPEr.json"),
               Container(
                 width: 400,
                 height: 350,
@@ -46,7 +47,8 @@ class _LoginPageState extends State<LoginPage> {
                         child: SizedBox(
                             height: 100,
                             width: 100,
-                            child: Lottie.asset('lottie/loading.json')))
+                            child: Lottie.network(
+                                'https://lottie.host/40b48fb5-6b33-42c9-84c2-db0d24a24ebe/P94JjyhGOK.json')))
                     : Padding(
                         padding: const EdgeInsets.all(15),
                         child: Column(

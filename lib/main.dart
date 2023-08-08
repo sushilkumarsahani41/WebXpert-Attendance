@@ -7,13 +7,13 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(
       options: const FirebaseOptions(
-          apiKey: "AIzaSyD5icl6uLoCHsB3XAbaIhlIhev16h4BCxQ",
-          authDomain: "attendance-d7352.firebaseapp.com",
-          projectId: "attendance-d7352",
-          storageBucket: "attendance-d7352.appspot.com",
-          messagingSenderId: "873573586803",
-          appId: "1:873573586803:web:edb79c8528a517b56ed706",
-          measurementId: "G-DKE7KWLQQ1"));
+          apiKey: "AIzaSyAgClMH_Cl8YpuC3NBKuuKY3MKFNCEc5Yo",
+          authDomain: "webxpertattendance.firebaseapp.com",
+          projectId: "webxpertattendance",
+          storageBucket: "webxpertattendance.appspot.com",
+          messagingSenderId: "800454109581",
+          appId: "1:800454109581:web:e844df27d4645536cd75c4",
+          measurementId: "G-SMWWNYBM5M"));
   runApp(const MyApp());
 }
 
@@ -24,12 +24,12 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Flutter Demo',
+      title: 'WebXpert Attendance',
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: kPrimaryColor),
         useMaterial3: true,
       ),
-      initialRoute: 'home',
+      initialRoute: '/',
       onGenerateRoute: genRoutes.generateRoute,
       debugShowCheckedModeBanner: false,
     );

@@ -3,6 +3,7 @@ import 'package:attendance_front/includes/attendance.dart';
 import 'package:attendance_front/includes/dashboard.dart';
 import 'package:attendance_front/includes/department.dart';
 import 'package:attendance_front/includes/device.dart';
+import 'package:attendance_front/includes/enrollment.dart';
 import 'package:attendance_front/includes/on_hover.dart';
 import 'package:attendance_front/includes/service.dart';
 import 'package:attendance_front/includes/students.dart';
@@ -34,18 +35,20 @@ class _HomePageState extends State<HomePage> {
     });
   }
 
-  var pages = [
-    const DashboardPage(),
-    const DevicePage(),
-    const DepartmentPage(),
-    const StudentsPage(),
-    const AttendancePage()
+  var pages = const [
+    DashboardPage(),
+    DevicePage(),
+    DepartmentPage(),
+    EnrollmentPage(),
+    StudentsPage(),
+    AttendancePage(),
   ];
-  int selected_index = 1;
+  int selected_index = 3;
   List<String> menu = [
     "Dashboard",
     "Devices",
     "Department",
+    "Enrollment",
     "Students",
     "Attendance",
     "Logout"
@@ -54,6 +57,7 @@ class _HomePageState extends State<HomePage> {
     Icons.dashboard,
     Icons.fingerprint,
     Icons.domain,
+    Icons.person_add,
     Icons.groups,
     Icons.contact_page,
     Icons.logout
@@ -104,7 +108,7 @@ class _HomePageState extends State<HomePage> {
                               return OnHover(builder: (ishoverd) {
                                 return InkWell(
                                   onTap: () async {
-                                    if (index == 5) {
+                                    if (index == 6) {
                                       SharedPreferences pref =
                                           await SharedPreferences.getInstance();
                                       pref.clear();

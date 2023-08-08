@@ -40,10 +40,9 @@ class _SplashScreenState extends State<SplashScreen> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Lottie.asset(
-                '/lottie/fingerprint.json',
-                repeat: false,
-              ),
+              Lottie.network(
+                  "https://lottie.host/d0a5bcab-192a-408e-b19f-9b5030026c46/wsDd0hyg0j.json",
+                  repeat: false),
               const SizedBox(
                 height: 20,
               ),
@@ -60,7 +59,7 @@ class _SplashScreenState extends State<SplashScreen> {
               ),
               SizedBox(
                   height: 130,
-                  child: LottieBuilder.asset('/lottie/loading.json'))
+                  child: LottieBuilder.network('https://lottie.host/40b48fb5-6b33-42c9-84c2-db0d24a24ebe/P94JjyhGOK.json'))
             ],
           ),
         ),
