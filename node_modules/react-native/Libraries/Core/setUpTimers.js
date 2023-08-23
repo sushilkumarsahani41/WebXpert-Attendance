@@ -1,5 +1,5 @@
 /**
- * Copyright (c) Facebook, Inc. and its affiliates.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
@@ -10,8 +10,8 @@
 
 'use strict';
 
-const {polyfillGlobal} = require('../Utilities/PolyfillFunctions');
 const {isNativeFunction} = require('../Utilities/FeatureDetection');
+const {polyfillGlobal} = require('../Utilities/PolyfillFunctions');
 
 if (__DEV__) {
   if (typeof global.Promise !== 'function') {
@@ -33,7 +33,17 @@ if (global.RN$Bridgeless !== true) {
    * Set up timers.
    * You can use this module directly, or just require InitializeCore.
    */
-  const defineLazyTimer = name => {
+  const defineLazyTimer = (
+    name:
+      | $TEMPORARY$string<'cancelAnimationFrame'>
+      | $TEMPORARY$string<'cancelIdleCallback'>
+      | $TEMPORARY$string<'clearInterval'>
+      | $TEMPORARY$string<'clearTimeout'>
+      | $TEMPORARY$string<'requestAnimationFrame'>
+      | $TEMPORARY$string<'requestIdleCallback'>
+      | $TEMPORARY$string<'setInterval'>
+      | $TEMPORARY$string<'setTimeout'>,
+  ) => {
     polyfillGlobal(name, () => require('./Timers/JSTimers')[name]);
   };
   defineLazyTimer('setTimeout');
@@ -51,7 +61,7 @@ if (global.RN$Bridgeless !== true) {
  * as the Promise.
  */
 if (hasPromiseQueuedToJSVM) {
-  // When promise queues to the JSVM microtasks queue, we shim the immedaite
+  // When promise queues to the JSVM microtasks queue, we shim the immediate
   // APIs via `queueMicrotask` to maintain the backward compatibility.
   polyfillGlobal(
     'setImmediate',
@@ -85,7 +95,7 @@ if (hasHermesPromiseQueuedToJSVM) {
   // Fast path for Hermes.
   polyfillGlobal('queueMicrotask', () => global.HermesInternal?.enqueueJob);
 } else {
-  // Polyfill it with promise (regardless it's polyfiled or native) otherwise.
+  // Polyfill it with promise (regardless it's polyfilled or native) otherwise.
   polyfillGlobal(
     'queueMicrotask',
     () => require('./Timers/queueMicrotask.js').default,

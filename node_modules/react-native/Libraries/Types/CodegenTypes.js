@@ -1,5 +1,5 @@
 /**
- * Copyright (c) Facebook, Inc. and its affiliates.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
@@ -29,6 +29,7 @@ export type Double = number;
 export type Float = number;
 export type Int32 = number;
 export type UnsafeObject = $FlowFixMe; // Object is forbidden in strict mode
+export type UnsafeMixed = mixed;
 
 type DefaultTypes = number | boolean | string | $ReadOnlyArray<string>;
 // Default handling, ignore the unused value

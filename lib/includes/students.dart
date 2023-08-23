@@ -152,7 +152,7 @@ class _StudentsPageState extends State<StudentsPage> {
                                   if (_prn.isEmpty) {
                                     return Padding(
                                       padding: const EdgeInsets.symmetric(
-                                          vertical: 10),
+                                          vertical: 10, horizontal: 20),
                                       child: Container(
                                         width: double.maxFinite,
                                         decoration: BoxDecoration(
@@ -228,7 +228,7 @@ class _StudentsPageState extends State<StudentsPage> {
                                       .startsWith(_prn)) {
                                     return Padding(
                                       padding: const EdgeInsets.symmetric(
-                                          vertical: 10),
+                                          vertical: 10, horizontal: 20),
                                       child: Container(
                                         width: double.maxFinite,
                                         decoration: BoxDecoration(
@@ -299,11 +299,7 @@ class _StudentsPageState extends State<StudentsPage> {
                                       ),
                                     );
                                   }
-                                  return Container(
-                                    child: Center(
-                                      child: Text("Student not found...!"),
-                                    ),
-                                  );
+                                  return Container();
                                 },
                               );
                       }),

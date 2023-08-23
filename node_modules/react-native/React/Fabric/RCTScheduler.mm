@@ -1,5 +1,5 @@
 /*
- * Copyright (c) Facebook, Inc. and its affiliates.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
@@ -24,10 +24,10 @@ class SchedulerDelegateProxy : public SchedulerDelegate {
  public:
   SchedulerDelegateProxy(void *scheduler) : scheduler_(scheduler) {}
 
-  void schedulerDidFinishTransaction(MountingCoordinator::Shared const &mountingCoordinator) override
+  void schedulerDidFinishTransaction(MountingCoordinator::Shared mountingCoordinator) override
   {
     RCTScheduler *scheduler = (__bridge RCTScheduler *)scheduler_;
-    [scheduler.delegate schedulerDidFinishTransaction:mountingCoordinator];
+    [scheduler.delegate schedulerDidFinishTransaction:std::move(mountingCoordinator)];
   }
 
   void schedulerDidRequestPreliminaryViewAllocation(SurfaceId surfaceId, const ShadowNode &shadowNode) override
@@ -36,19 +36,10 @@ class SchedulerDelegateProxy : public SchedulerDelegate {
     // This delegate method is not currently used on iOS.
   }
 
-  void schedulerDidCloneShadowNode(
-      SurfaceId surfaceId,
-      const ShadowNode &oldShadowNode,
-      const ShadowNode &newShadowNode) override
-  {
-    // Does nothing.
-    // This delegate method is not currently used on iOS.
-  }
-
   void schedulerDidDispatchCommand(
       const ShadowView &shadowView,
       const std::string &commandName,
-      const folly::dynamic args) override
+      const folly::dynamic &args) override
   {
     RCTScheduler *scheduler = (__bridge RCTScheduler *)scheduler_;
     [scheduler.delegate schedulerDidDispatchCommand:shadowView commandName:commandName args:args];
@@ -124,15 +115,6 @@ class LayoutAnimationDelegateProxy : public LayoutAnimationStatusDelegate, publi
       _layoutAnimationDelegateProxy = std::make_shared<LayoutAnimationDelegateProxy>((__bridge void *)self);
       _animationDriver = std::make_shared<LayoutAnimationDriver>(
           toolbox.runtimeExecutor, toolbox.contextContainer, _layoutAnimationDelegateProxy.get());
-      if (reactNativeConfig->getBool("react_fabric:enabled_skip_invalidated_key_frames_ios")) {
-        _animationDriver->enableSkipInvalidatedKeyFrames();
-      }
-      if (reactNativeConfig->getBool("react_fabric:enable_crash_on_missing_component_descriptor")) {
-        _animationDriver->enableCrashOnMissingComponentDescriptor();
-      }
-      if (reactNativeConfig->getBool("react_fabric:enable_simulate_image_props_memory_access")) {
-        _animationDriver->enableSimulateImagePropsMemoryAccess();
-      }
       _uiRunLoopObserver =
           toolbox.mainRunLoopObserverFactory(RunLoopObserver::Activity::BeforeWaiting, _layoutAnimationDelegateProxy);
       _uiRunLoopObserver->setDelegate(_layoutAnimationDelegateProxy.get());
@@ -155,7 +137,8 @@ class LayoutAnimationDelegateProxy : public LayoutAnimationStatusDelegate, publi
   if (_animationDriver) {
     _animationDriver->setLayoutAnimationStatusDelegate(nullptr);
   }
-  _animationDriver = nullptr;
+
+  _scheduler->setDelegate(nullptr);
 }
 
 - (void)registerSurface:(facebook::react::SurfaceHandler const &)surfaceHandler
@@ -190,6 +173,21 @@ class LayoutAnimationDelegateProxy : public LayoutAnimationStatusDelegate, publi
   if (_uiRunLoopObserver) {
     _uiRunLoopObserver->disable();
   }
+}
+
+- (void)addEventListener:(std::shared_ptr<EventListener> const &)listener
+{
+  return _scheduler->addEventListener(listener);
+}
+
+- (void)removeEventListener:(std::shared_ptr<EventListener> const &)listener
+{
+  return _scheduler->removeEventListener(listener);
+}
+
+- (std::shared_ptr<facebook::react::UIManager> const)uiManager
+{
+  return _scheduler->getUIManager();
 }
 
 @end

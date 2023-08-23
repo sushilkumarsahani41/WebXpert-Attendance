@@ -1,5 +1,5 @@
 /*
- * Copyright (c) Facebook, Inc. and its affiliates.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
@@ -46,6 +46,20 @@ enum class FontVariant : int {
   ProportionalNums = 1 << 5
 };
 
+enum class DynamicTypeRamp {
+  Caption2,
+  Caption1,
+  Footnote,
+  Subheadline,
+  Callout,
+  Body,
+  Headline,
+  Title3,
+  Title2,
+  Title1,
+  LargeTitle
+};
+
 enum class EllipsizeMode {
   Clip, // Do not add ellipsize, simply clip.
   Head, // Truncate at head of line: "...wxyz".
@@ -74,6 +88,15 @@ enum class WritingDirection {
   RightToLeft // Right to left writing direction.
 };
 
+enum class LineBreakStrategy {
+  None, // Don't use any line break strategies
+  PushOut, // Use the push out line break strategy.
+  HangulWordPriority, // When specified, it prohibits breaking between Hangul
+                      // characters.
+  Standard // Use the same configuration of line break strategies that the
+           // system uses for standard UI labels.
+};
+
 enum class TextDecorationLineType {
   None,
   Underline,
@@ -81,15 +104,7 @@ enum class TextDecorationLineType {
   UnderlineStrikethrough
 };
 
-enum class TextDecorationLineStyle { Single, Thick, Double };
-
-enum class TextDecorationLinePattern {
-  Solid,
-  Dot,
-  Dash,
-  DashDot,
-  DashDotDot,
-};
+enum class TextDecorationStyle { Solid, Double, Dotted, Dashed };
 
 enum class AccessibilityRole {
   None,
@@ -176,15 +191,8 @@ struct hash<facebook::react::WritingDirection> {
 };
 
 template <>
-struct hash<facebook::react::TextDecorationLinePattern> {
-  size_t operator()(const facebook::react::TextDecorationLinePattern &v) const {
-    return hash<int>()(static_cast<int>(v));
-  }
-};
-
-template <>
-struct hash<facebook::react::TextDecorationLineStyle> {
-  size_t operator()(const facebook::react::TextDecorationLineStyle &v) const {
+struct hash<facebook::react::TextDecorationStyle> {
+  size_t operator()(const facebook::react::TextDecorationStyle &v) const {
     return hash<int>()(static_cast<int>(v));
   }
 };
@@ -192,6 +200,13 @@ struct hash<facebook::react::TextDecorationLineStyle> {
 template <>
 struct hash<facebook::react::FontWeight> {
   size_t operator()(const facebook::react::FontWeight &v) const {
+    return hash<int>()(static_cast<int>(v));
+  }
+};
+
+template <>
+struct hash<facebook::react::DynamicTypeRamp> {
+  size_t operator()(const facebook::react::DynamicTypeRamp &v) const {
     return hash<int>()(static_cast<int>(v));
   }
 };

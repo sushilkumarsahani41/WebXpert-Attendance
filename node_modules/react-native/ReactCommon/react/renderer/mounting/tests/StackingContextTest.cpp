@@ -1,5 +1,5 @@
 /*
- * Copyright (c) Facebook, Inc. and its affiliates.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
@@ -21,8 +21,7 @@
 #include <react/renderer/mounting/ShadowViewMutation.h>
 #include <react/renderer/mounting/stubs.h>
 
-namespace facebook {
-namespace react {
+namespace facebook::react {
 
 class StackingContextTest : public ::testing::Test {
  protected:
@@ -153,19 +152,19 @@ class StackingContextTest : public ::testing::Test {
   }
 
   void mutateViewShadowNodeProps_(
-      std::shared_ptr<ViewShadowNode> node,
+      std::shared_ptr<ViewShadowNode> const &node,
       std::function<void(ViewProps &props)> callback) {
     rootShadowNode_ =
         std::static_pointer_cast<RootShadowNode>(rootShadowNode_->cloneTree(
             node->getFamily(), [&](ShadowNode const &oldShadowNode) {
-              auto viewProps = std::make_shared<ViewProps>();
+              auto viewProps = std::make_shared<ViewShadowNodeProps>();
               callback(*viewProps);
               return oldShadowNode.clone(ShadowNodeFragment{viewProps});
             }));
   }
 
   void testViewTree_(
-      std::function<void(StubViewTree const &viewTree)> callback) {
+      std::function<void(StubViewTree const &viewTree)> const &callback) {
     rootShadowNode_->layoutIfNeeded();
 
     callback(buildStubViewTreeUsingDifferentiator(*rootShadowNode_));
@@ -770,18 +769,17 @@ TEST_F(StackingContextTest, zIndexAndFlattenedNodes) {
 
   testViewTree_([](StubViewTree const &viewTree) {
     // 5 views in total.
-    EXPECT_EQ(viewTree.size(), 5);
+    EXPECT_EQ(viewTree.size(), 8);
 
-    // The root view has all 4 subviews.
-    EXPECT_EQ(viewTree.getRootStubView().children.size(), 4);
+    // The root view has all 5 subviews.
+    EXPECT_EQ(viewTree.getRootStubView().children.size(), 5);
 
-    // The root view subviews are [10, 9, 5, 3].
-    EXPECT_EQ(viewTree.getRootStubView().children.at(0)->tag, 10);
-    EXPECT_EQ(viewTree.getRootStubView().children.at(1)->tag, 9);
-    EXPECT_EQ(viewTree.getRootStubView().children.at(2)->tag, 5);
-    EXPECT_EQ(viewTree.getRootStubView().children.at(3)->tag, 3);
+    // The root view subviews are [6, 10, 9, 5].
+    EXPECT_EQ(viewTree.getRootStubView().children.at(0)->tag, 6);
+    EXPECT_EQ(viewTree.getRootStubView().children.at(1)->tag, 10);
+    EXPECT_EQ(viewTree.getRootStubView().children.at(2)->tag, 9);
+    EXPECT_EQ(viewTree.getRootStubView().children.at(3)->tag, 5);
   });
 }
 
-} // namespace react
-} // namespace facebook
+} // namespace facebook::react

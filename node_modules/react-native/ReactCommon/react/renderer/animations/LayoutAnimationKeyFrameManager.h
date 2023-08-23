@@ -1,5 +1,5 @@
 /*
- * Copyright (c) Facebook, Inc. and its affiliates.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
@@ -8,8 +8,7 @@
 #pragma once
 
 #include <ReactCommon/RuntimeExecutor.h>
-#include <better/optional.h>
-#include <better/set.h>
+#include <butter/set.h>
 #include <react/renderer/animations/LayoutAnimationCallbackWrapper.h>
 #include <react/renderer/animations/primitives.h>
 #include <react/renderer/core/RawValue.h>
@@ -19,6 +18,8 @@
 #include <react/renderer/mounting/ShadowViewMutation.h>
 #include <react/renderer/uimanager/LayoutAnimationStatusDelegate.h>
 #include <react/renderer/uimanager/UIManagerAnimationDelegate.h>
+
+#include <optional>
 
 namespace facebook {
 namespace react {
@@ -55,6 +56,8 @@ class LayoutAnimationKeyFrameManager : public UIManagerAnimationDelegate,
   void setComponentDescriptorRegistry(SharedComponentDescriptorRegistry const &
                                           componentDescriptorRegistry) override;
 
+  void setReduceDeleteCreateMutation(bool reduceDeleteCreateMutation) override;
+
   // TODO: add SurfaceId to this API as well
   bool shouldAnimateFrame() const override;
 
@@ -67,7 +70,7 @@ class LayoutAnimationKeyFrameManager : public UIManagerAnimationDelegate,
   // This is used to "hijack" the diffing process to figure out which mutations
   // should be animated. The mutations returned by this function will be
   // executed immediately.
-  better::optional<MountingTransaction> pullTransaction(
+  std::optional<MountingTransaction> pullTransaction(
       SurfaceId surfaceId,
       MountingTransaction::Number number,
       TransactionTelemetry const &telemetry,
@@ -87,15 +90,9 @@ class LayoutAnimationKeyFrameManager : public UIManagerAnimationDelegate,
 
   void setClockNow(std::function<uint64_t()> now);
 
-  void enableSkipInvalidatedKeyFrames();
-
-  void enableCrashOnMissingComponentDescriptor();
-
-  void enableSimulateImagePropsMemoryAccess();
-
  protected:
   SharedComponentDescriptorRegistry componentDescriptorRegistry_;
-  mutable better::optional<LayoutAnimation> currentAnimation_{};
+  mutable std::optional<LayoutAnimation> currentAnimation_{};
   mutable std::mutex currentAnimationMutex_;
 
   /**
@@ -120,7 +117,7 @@ class LayoutAnimationKeyFrameManager : public UIManagerAnimationDelegate,
    * @return
    */
   ShadowView createInterpolatedShadowView(
-      double progress,
+      Float progress,
       ShadowView const &startingView,
       ShadowView const &finalView) const;
 
@@ -148,21 +145,8 @@ class LayoutAnimationKeyFrameManager : public UIManagerAnimationDelegate,
   mutable std::mutex layoutAnimationStatusDelegateMutex_;
   mutable LayoutAnimationStatusDelegate *layoutAnimationStatusDelegate_{};
   mutable std::mutex surfaceIdsToStopMutex_;
-  mutable better::set<SurfaceId> surfaceIdsToStop_{};
-  bool skipInvalidatedKeyFrames_{false};
-
-  /*
-   * Feature flag that forces a crash if component descriptor for shadow view
-   * doesn't exist. This is an unexpected state and we crash to collect extra
-   * logs.
-   */
-  bool crashOnMissingComponentDescriptor_{false};
-
-  /*
-   * Feature flag that enables simulation of memory access. This is a temporary
-   * flag to diagnose where crashes are coming from in LayoutAnimations on iOS.
-   */
-  bool simulateImagePropsMemoryAccess_{false};
+  mutable butter::set<SurfaceId> surfaceIdsToStop_{};
+  bool reduceDeleteCreateMutation_{false};
 
   // Function that returns current time in milliseconds
   std::function<uint64_t()> now_;

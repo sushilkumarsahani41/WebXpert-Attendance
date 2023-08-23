@@ -1,5 +1,5 @@
 /*
- * Copyright (c) Facebook, Inc. and its affiliates.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
@@ -283,7 +283,7 @@ RCT_NOT_IMPLEMENTED(-(instancetype)initWithCoder : (NSCoder *)aDecoder)
   _contentView = [[RCTRootContentView alloc] initWithFrame:self.bounds
                                                     bridge:bridge
                                                   reactTag:self.reactTag
-                                            sizeFlexiblity:_sizeFlexibility];
+                                           sizeFlexibility:_sizeFlexibility];
   [self runApplication:bridge];
 
   _contentView.passThroughTouches = _passThroughTouches;

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) Facebook, Inc. and its affiliates.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
@@ -7,6 +7,7 @@
 
 #include "LegacyViewManagerInteropComponentDescriptor.h"
 #include <React/RCTBridge.h>
+#include <React/RCTBridgeModuleDecorator.h>
 #include <React/RCTComponentData.h>
 #include <React/RCTEventDispatcher.h>
 #include <React/RCTModuleData.h>
@@ -18,7 +19,7 @@
 namespace facebook {
 namespace react {
 
-static std::string moduleNameFromComponentName(const std::string &componentName)
+static std::string moduleNameFromComponentNameNoRCTPrefix(const std::string &componentName)
 {
   // TODO: remove FB specific code (T56174424)
   if (componentName == "StickerInputView") {
@@ -29,9 +30,6 @@ static std::string moduleNameFromComponentName(const std::string &componentName)
     return "FBReactFDSTooltipViewManager";
   }
 
-  if (componentName == "FBRotatablePhotoPlayer") {
-    return "FBRotatablePhotoPlayerViewManager";
-  }
   std::string fbPrefix("FB");
   if (std::mismatch(fbPrefix.begin(), fbPrefix.end(), componentName.begin()).first == fbPrefix.end()) {
     // If `moduleName` has "FB" prefix.
@@ -43,12 +41,37 @@ static std::string moduleNameFromComponentName(const std::string &componentName)
     return componentName + "Manager";
   }
 
-  return "RCT" + componentName + "Manager";
+  std::string rnPrefix("RN");
+  if (std::mismatch(rnPrefix.begin(), rnPrefix.end(), componentName.begin()).first == rnPrefix.end()) {
+    return componentName + "Manager";
+  }
+
+  return componentName + "Manager";
 }
 
 inline NSString *RCTNSStringFromString(const std::string &string)
 {
-  return [NSString stringWithCString:string.c_str() encoding:NSUTF8StringEncoding];
+  return [NSString stringWithUTF8String:string.c_str()];
+}
+
+static Class getViewManagerFromComponentName(const std::string &componentName)
+{
+  auto viewManagerName = moduleNameFromComponentNameNoRCTPrefix(componentName);
+
+  // 1. Try to get the manager with the RCT prefix.
+  auto rctViewManagerName = "RCT" + viewManagerName;
+  Class viewManagerClass = NSClassFromString(RCTNSStringFromString(rctViewManagerName));
+  if (viewManagerClass) {
+    return viewManagerClass;
+  }
+
+  // 2. Try to get the manager without the prefix.
+  viewManagerClass = NSClassFromString(RCTNSStringFromString(viewManagerName));
+  if (viewManagerClass) {
+    return viewManagerClass;
+  }
+
+  return nil;
 }
 
 static std::shared_ptr<void> const constructCoordinator(
@@ -56,9 +79,8 @@ static std::shared_ptr<void> const constructCoordinator(
     ComponentDescriptor::Flavor const &flavor)
 {
   auto componentName = *std::static_pointer_cast<std::string const>(flavor);
-  auto moduleName = moduleNameFromComponentName(componentName);
-  Class module = NSClassFromString(RCTNSStringFromString(moduleName));
-  assert(module);
+  Class viewManagerClass = getViewManagerFromComponentName(componentName);
+  assert(viewManagerClass);
   auto optionalBridge = contextContainer->find<std::shared_ptr<void>>("Bridge");
   RCTBridge *bridge;
   if (optionalBridge) {
@@ -71,11 +93,19 @@ static std::shared_ptr<void> const constructCoordinator(
     eventDispatcher = unwrapManagedObject(optionalEventDispatcher.value());
   }
 
-  RCTComponentData *componentData = [[RCTComponentData alloc] initWithManagerClass:module
+  auto optionalModuleDecorator = contextContainer->find<std::shared_ptr<void>>("RCTBridgeModuleDecorator");
+  RCTBridgeModuleDecorator *bridgeModuleDecorator;
+  if (optionalModuleDecorator) {
+    bridgeModuleDecorator = unwrapManagedObject(optionalModuleDecorator.value());
+  }
+
+  RCTComponentData *componentData = [[RCTComponentData alloc] initWithManagerClass:viewManagerClass
                                                                             bridge:bridge
                                                                    eventDispatcher:eventDispatcher];
-  return wrapManagedObject([[RCTLegacyViewManagerInteropCoordinator alloc] initWithComponentData:componentData
-                                                                                          bridge:bridge]);
+  return wrapManagedObject([[RCTLegacyViewManagerInteropCoordinator alloc]
+      initWithComponentData:componentData
+                     bridge:bridge
+      bridgelessInteropData:bridgeModuleDecorator]);
 }
 
 LegacyViewManagerInteropComponentDescriptor::LegacyViewManagerInteropComponentDescriptor(

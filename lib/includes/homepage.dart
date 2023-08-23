@@ -43,7 +43,7 @@ class _HomePageState extends State<HomePage> {
     StudentsPage(),
     AttendancePage(),
   ];
-  int selected_index = 3;
+  int selected_index = 1;
   List<String> menu = [
     "Dashboard",
     "Devices",

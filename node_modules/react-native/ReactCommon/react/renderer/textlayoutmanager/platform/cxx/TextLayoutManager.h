@@ -1,5 +1,5 @@
 /*
- * Copyright (c) Facebook, Inc. and its affiliates.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
@@ -29,7 +29,6 @@ using SharedTextLayoutManager = std::shared_ptr<const TextLayoutManager>;
 class TextLayoutManager {
  public:
   TextLayoutManager(const ContextContainer::Shared &contextContainer) {}
-  ~TextLayoutManager();
 
   /*
    * Measures `attributedStringBox` using native text rendering infrastructure.
@@ -37,7 +36,8 @@ class TextLayoutManager {
   TextMeasurement measure(
       AttributedStringBox attributedStringBox,
       ParagraphAttributes paragraphAttributes,
-      LayoutConstraints layoutConstraints) const;
+      LayoutConstraints layoutConstraints,
+      std::shared_ptr<void>) const;
 
   /*
    * Measures lines of `attributedString` using native text rendering
@@ -53,6 +53,11 @@ class TextLayoutManager {
    * Is used on a native views layer to delegate text rendering to the manager.
    */
   void *getNativeTextLayoutManager() const;
+
+  std::shared_ptr<void> getHostTextStorage(
+      AttributedString attributedStringBox,
+      ParagraphAttributes paragraphAttributes,
+      LayoutConstraints layoutConstraints) const;
 };
 
 } // namespace react

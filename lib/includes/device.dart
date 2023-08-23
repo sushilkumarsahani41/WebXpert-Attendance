@@ -1,7 +1,7 @@
 // ignore_for_file: use_build_context_synchronously, prefer_const_constructors
 
 import 'dart:async';
-
+import 'dart:html' as html;
 import 'package:attendance_front/includes/service.dart';
 import 'package:attendance_front/includes/snackbar.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -17,11 +17,8 @@ class DevicePage extends StatefulWidget {
 }
 
 class _DevicePageState extends State<DevicePage> {
-  @override
-  void setState(fn) {
-    if (mounted) {
-      super.setState(fn);
-    }
+  void downloadFile(String url) {
+    html.window.open(url, "_blank");
   }
 
   String? selDep = 'Select';
@@ -265,7 +262,15 @@ class _DevicePageState extends State<DevicePage> {
                                                           Icon(Icons.settings)),
                                                   IconButton(
                                                       onPressed: () {
-                                                        setState(() {});
+                                                        var url =
+                                                            'https://api.webxpert.in/device/genDeviceConfig?key=9tVwVRQhXEZG8u4f3pJTPeFoleAskSSPvcF_kAqGv08ZGINTiFIkLZ6AOcKQumXoOUO6ZazHYoo68ype1uyGiA&deviceID=' +
+                                                                snapshot
+                                                                    .data!
+                                                                    .docs[index]
+                                                                    .id
+                                                                    .toString();
+
+                                                        downloadFile(url);
                                                       },
                                                       icon: Icon(Icons
                                                           .sim_card_download)),

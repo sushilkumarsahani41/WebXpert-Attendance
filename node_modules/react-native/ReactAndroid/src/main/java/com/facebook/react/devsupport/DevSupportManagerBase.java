@@ -1,5 +1,5 @@
 /*
- * Copyright (c) Facebook, Inc. and its affiliates.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
@@ -20,10 +20,12 @@ import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.graphics.Typeface;
 import android.hardware.SensorManager;
+import android.os.Build;
 import android.util.Pair;
 import android.view.Gravity;
 import android.view.View;
 import android.widget.EditText;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 import androidx.annotation.Nullable;
@@ -31,7 +33,7 @@ import androidx.annotation.UiThread;
 import com.facebook.common.logging.FLog;
 import com.facebook.infer.annotation.Assertions;
 import com.facebook.react.R;
-import com.facebook.react.bridge.DefaultNativeModuleCallExceptionHandler;
+import com.facebook.react.bridge.DefaultJSExceptionHandler;
 import com.facebook.react.bridge.JSBundleLoader;
 import com.facebook.react.bridge.ReactContext;
 import com.facebook.react.bridge.ReactMarker;
@@ -46,11 +48,13 @@ import com.facebook.react.common.SurfaceDelegateFactory;
 import com.facebook.react.devsupport.DevServerHelper.PackagerCommandListener;
 import com.facebook.react.devsupport.interfaces.BundleLoadCallback;
 import com.facebook.react.devsupport.interfaces.DevBundleDownloadListener;
+import com.facebook.react.devsupport.interfaces.DevLoadingViewManager;
 import com.facebook.react.devsupport.interfaces.DevOptionHandler;
 import com.facebook.react.devsupport.interfaces.DevSupportManager;
 import com.facebook.react.devsupport.interfaces.ErrorCustomizer;
 import com.facebook.react.devsupport.interfaces.ErrorType;
 import com.facebook.react.devsupport.interfaces.PackagerStatusCallback;
+import com.facebook.react.devsupport.interfaces.RedBoxHandler;
 import com.facebook.react.devsupport.interfaces.StackFrame;
 import com.facebook.react.modules.core.RCTNativeAppEventEmitter;
 import com.facebook.react.packagerconnection.RequestHandler;
@@ -93,10 +97,10 @@ public abstract class DevSupportManagerBase implements DevSupportManager {
   private final @Nullable String mJSAppBundleName;
   private final File mJSBundleDownloadedFile;
   private final File mJSSplitBundlesDir;
-  private final DefaultNativeModuleCallExceptionHandler mDefaultNativeModuleCallExceptionHandler;
-  private final DevLoadingViewController mDevLoadingViewController;
+  private final DefaultJSExceptionHandler mDefaultJSExceptionHandler;
+  private final DevLoadingViewManager mDevLoadingViewManager;
 
-  private @Nullable RedBoxDialog mRedBoxDialog;
+  private @Nullable SurfaceDelegate mRedBoxSurfaceDelegate;
   private @Nullable AlertDialog mDevOptionsDialog;
   private @Nullable DebugOverlayController mDebugOverlayController;
   private boolean mDevLoadingViewVisible = false;
@@ -131,7 +135,8 @@ public abstract class DevSupportManagerBase implements DevSupportManager {
       @Nullable DevBundleDownloadListener devBundleDownloadListener,
       int minNumShakes,
       @Nullable Map<String, RequestHandler> customPackagerCommandHandlers,
-      @Nullable SurfaceDelegateFactory surfaceDelegateFactory) {
+      @Nullable SurfaceDelegateFactory surfaceDelegateFactory,
+      @Nullable DevLoadingViewManager devLoadingViewManager) {
     mReactInstanceDevHelper = reactInstanceDevHelper;
     mApplicationContext = applicationContext;
     mJSAppBundleName = packagerPathForJSBundleName;
@@ -197,15 +202,18 @@ public abstract class DevSupportManagerBase implements DevSupportManager {
     final String bundleFile = subclassTag + "ReactNativeDevBundle.js";
     mJSBundleDownloadedFile = new File(applicationContext.getFilesDir(), bundleFile);
 
-    final String splitBundlesDir = subclassTag.toLowerCase() + "_dev_js_split_bundles";
+    final String splitBundlesDir = subclassTag.toLowerCase(Locale.ROOT) + "_dev_js_split_bundles";
     mJSSplitBundlesDir = mApplicationContext.getDir(splitBundlesDir, Context.MODE_PRIVATE);
 
-    mDefaultNativeModuleCallExceptionHandler = new DefaultNativeModuleCallExceptionHandler();
+    mDefaultJSExceptionHandler = new DefaultJSExceptionHandler();
 
     setDevSupportEnabled(enableOnCreate);
 
     mRedBoxHandler = redBoxHandler;
-    mDevLoadingViewController = new DevLoadingViewController(reactInstanceDevHelper);
+    mDevLoadingViewManager =
+        devLoadingViewManager != null
+            ? devLoadingViewManager
+            : new DefaultDevLoadingViewImplementation(reactInstanceDevHelper);
     mSurfaceDelegateFactory = surfaceDelegateFactory;
   };
 
@@ -216,7 +224,7 @@ public abstract class DevSupportManagerBase implements DevSupportManager {
     if (mIsDevSupportEnabled) {
       logJSException(e);
     } else {
-      mDefaultNativeModuleCallExceptionHandler.handleException(e);
+      mDefaultJSExceptionHandler.handleException(e);
     }
   }
 
@@ -272,7 +280,8 @@ public abstract class DevSupportManagerBase implements DevSupportManager {
     mErrorCustomizers.add(errorCustomizer);
   }
 
-  private Pair<String, StackFrame[]> processErrorCustomizers(Pair<String, StackFrame[]> errorInfo) {
+  @Override
+  public Pair<String, StackFrame[]> processErrorCustomizers(Pair<String, StackFrame[]> errorInfo) {
     if (mErrorCustomizers == null) {
       return errorInfo;
     } else {
@@ -296,33 +305,25 @@ public abstract class DevSupportManagerBase implements DevSupportManager {
             // Since we only show the first JS error in a succession of JS errors, make sure we only
             // update the error message for that error message. This assumes that updateJSError
             // belongs to the most recent showNewJSError
-            if (mRedBoxDialog == null
-                || !mRedBoxDialog.isShowing()
-                || errorCookie != mLastErrorCookie) {
+            if (!mRedBoxSurfaceDelegate.isShowing() || errorCookie != mLastErrorCookie) {
               return;
             }
-            StackFrame[] stack = StackTraceHelper.convertJsStackTrace(details);
-            Pair<String, StackFrame[]> errorInfo =
-                processErrorCustomizers(Pair.create(message, stack));
-            mRedBoxDialog.setExceptionDetails(errorInfo.first, errorInfo.second);
-            updateLastErrorInfo(message, stack, errorCookie, ErrorType.JS);
-            // JS errors are reported here after source mapping.
-            if (mRedBoxHandler != null) {
-              mRedBoxHandler.handleRedbox(message, stack, ErrorType.JS);
-              mRedBoxDialog.resetReporting();
-            }
-            mRedBoxDialog.show();
+
+            // The RedBox surface delegate will always show the latest error
+            updateLastErrorInfo(
+                message, StackTraceHelper.convertJsStackTrace(details), errorCookie, ErrorType.JS);
+            mRedBoxSurfaceDelegate.show();
           }
         });
   }
 
   @Override
   public void hideRedboxDialog() {
-    // dismiss redbox if exists
-    if (mRedBoxDialog != null) {
-      mRedBoxDialog.dismiss();
-      mRedBoxDialog = null;
+    if (mRedBoxSurfaceDelegate == null) {
+      return;
     }
+
+    mRedBoxSurfaceDelegate.hide();
   }
 
   public @Nullable View createRootView(String appKey) {
@@ -349,41 +350,28 @@ public abstract class DevSupportManagerBase implements DevSupportManager {
         new Runnable() {
           @Override
           public void run() {
-            Activity context = mReactInstanceDevHelper.getCurrentActivity();
-            if (context != null && !context.isFinishing() && currentActivity != context) {
-              currentActivity = context;
-              // Create a new RedBox when currentActivity get updated
-              mRedBoxDialog =
-                  new RedBoxDialog(currentActivity, DevSupportManagerBase.this, mRedBoxHandler);
+            // Keep a copy of the latest error to be shown by the RedBoxSurface
+            updateLastErrorInfo(message, stack, errorCookie, errorType);
+
+            if (mRedBoxSurfaceDelegate == null) {
+              @Nullable SurfaceDelegate redBoxSurfaceDelegate = createSurfaceDelegate("RedBox");
+              if (redBoxSurfaceDelegate != null) {
+                mRedBoxSurfaceDelegate = redBoxSurfaceDelegate;
+              } else {
+                mRedBoxSurfaceDelegate =
+                    new RedBoxDialogSurfaceDelegate(DevSupportManagerBase.this);
+              }
+
+              mRedBoxSurfaceDelegate.createContentView("RedBox");
             }
-            if (currentActivity == null || currentActivity.isFinishing()) {
-              FLog.e(
-                  ReactConstants.TAG,
-                  "Unable to launch redbox because react activity "
-                      + "is not available, here is the error that redbox would've displayed: "
-                      + message);
-              return;
-            }
-            if (mRedBoxDialog == null) {
-              mRedBoxDialog =
-                  new RedBoxDialog(currentActivity, DevSupportManagerBase.this, mRedBoxHandler);
-            }
-            if (mRedBoxDialog.isShowing()) {
+
+            if (mRedBoxSurfaceDelegate.isShowing()) {
               // Sometimes errors cause multiple errors to be thrown in JS in quick succession. Only
               // show the first and most actionable one.
               return;
             }
-            Pair<String, StackFrame[]> errorInfo =
-                processErrorCustomizers(Pair.create(message, stack));
-            mRedBoxDialog.setExceptionDetails(errorInfo.first, errorInfo.second);
-            updateLastErrorInfo(message, stack, errorCookie, errorType);
-            // Only report native errors here. JS errors are reported
-            // inside {@link #updateJSError} after source mapping.
-            if (mRedBoxHandler != null && errorType == ErrorType.NATIVE) {
-              mRedBoxHandler.handleRedbox(message, stack, ErrorType.NATIVE);
-            }
-            mRedBoxDialog.resetReporting();
-            mRedBoxDialog.show();
+
+            mRedBoxSurfaceDelegate.show();
           }
         });
   }
@@ -567,17 +555,30 @@ public abstract class DevSupportManagerBase implements DevSupportManager {
       return;
     }
 
-    final TextView textView = new TextView(getApplicationContext());
-    textView.setText("React Native DevMenu (" + getUniqueTag() + ")");
-    textView.setPadding(0, 50, 0, 0);
-    textView.setGravity(Gravity.CENTER);
-    textView.setTextColor(Color.BLACK);
-    textView.setTextSize(17);
-    textView.setTypeface(textView.getTypeface(), Typeface.BOLD);
+    final LinearLayout header = new LinearLayout(getApplicationContext());
+    header.setOrientation(LinearLayout.VERTICAL);
+
+    final TextView title = new TextView(getApplicationContext());
+    title.setText("React Native Dev Menu (" + getUniqueTag() + ")");
+    title.setPadding(0, 50, 0, 0);
+    title.setGravity(Gravity.CENTER);
+    title.setTextColor(Color.DKGRAY);
+    title.setTextSize(16);
+    title.setTypeface(title.getTypeface(), Typeface.BOLD);
+
+    final TextView jsExecutorLabel = new TextView(getApplicationContext());
+    jsExecutorLabel.setText(getJSExecutorDescription());
+    jsExecutorLabel.setPadding(0, 20, 0, 0);
+    jsExecutorLabel.setGravity(Gravity.CENTER);
+    jsExecutorLabel.setTextColor(Color.GRAY);
+    jsExecutorLabel.setTextSize(14);
+
+    header.addView(title);
+    header.addView(jsExecutorLabel);
 
     mDevOptionsDialog =
         new AlertDialog.Builder(context)
-            .setCustomTitle(textView)
+            .setCustomTitle(header)
             .setItems(
                 options.keySet().toArray(new String[0]),
                 new DialogInterface.OnClickListener() {
@@ -601,6 +602,10 @@ public abstract class DevSupportManagerBase implements DevSupportManager {
     }
   }
 
+  private String getJSExecutorDescription() {
+    return "Running " + getReactInstanceDevHelper().getJavaScriptExecutorFactory().toString();
+  }
+
   /**
    * {@link ReactInstanceDevCommandsHandler} is responsible for enabling/disabling dev support when
    * a React view is attached/detached or when application state changes (e.g. the application is
@@ -620,6 +625,11 @@ public abstract class DevSupportManagerBase implements DevSupportManager {
   @Override
   public DevInternalSettings getDevSettings() {
     return mDevSettings;
+  }
+
+  @Override
+  public RedBoxHandler getRedBoxHandler() {
+    return mRedBoxHandler;
   }
 
   @Override
@@ -717,7 +727,7 @@ public abstract class DevSupportManagerBase implements DevSupportManager {
         URL sourceUrl = new URL(getSourceUrl());
         String path = sourceUrl.getPath().substring(1); // strip initial slash in path
         String host = sourceUrl.getHost();
-        int port = sourceUrl.getPort();
+        int port = sourceUrl.getPort() != -1 ? sourceUrl.getPort() : sourceUrl.getDefaultPort();
         mCurrentContext
             .getJSModule(HMRClient.class)
             .setup("android", path, host, port, mDevSettings.isHotModuleReplacementEnabled());
@@ -766,19 +776,40 @@ public abstract class DevSupportManagerBase implements DevSupportManager {
 
   @UiThread
   private void showDevLoadingViewForUrl(String bundleUrl) {
-    mDevLoadingViewController.showForUrl(bundleUrl);
+    if (mApplicationContext == null) {
+      return;
+    }
+
+    URL parsedURL;
+
+    try {
+      parsedURL = new URL(bundleUrl);
+    } catch (MalformedURLException e) {
+      FLog.e(ReactConstants.TAG, "Bundle url format is invalid. \n\n" + e.toString());
+      return;
+    }
+
+    int port = parsedURL.getPort() != -1 ? parsedURL.getPort() : parsedURL.getDefaultPort();
+    mDevLoadingViewManager.showMessage(
+        mApplicationContext.getString(
+            R.string.catalyst_loading_from_url, parsedURL.getHost() + ":" + port));
     mDevLoadingViewVisible = true;
   }
 
   @UiThread
   protected void showDevLoadingViewForRemoteJSEnabled() {
-    mDevLoadingViewController.showForRemoteJSEnabled();
+    if (mApplicationContext == null) {
+      return;
+    }
+
+    mDevLoadingViewManager.showMessage(
+        mApplicationContext.getString(R.string.catalyst_debug_connecting));
     mDevLoadingViewVisible = true;
   }
 
   @UiThread
   protected void hideDevLoadingView() {
-    mDevLoadingViewController.hide();
+    mDevLoadingViewManager.hide();
     mDevLoadingViewVisible = false;
   }
 
@@ -820,7 +851,7 @@ public abstract class DevSupportManagerBase implements DevSupportManager {
                   @Override
                   public void onProgress(
                       @Nullable String status, @Nullable Integer done, @Nullable Integer total) {
-                    mDevLoadingViewController.updateProgress(status, done, total);
+                    mDevLoadingViewManager.updateProgress(status, done, total);
                   }
 
                   @Override
@@ -885,6 +916,11 @@ public abstract class DevSupportManagerBase implements DevSupportManager {
   @Override
   public @Nullable StackFrame[] getLastErrorStack() {
     return mLastErrorStack;
+  }
+
+  @Override
+  public int getLastErrorCookie() {
+    return mLastErrorCookie;
   }
 
   @Override
@@ -956,7 +992,7 @@ public abstract class DevSupportManagerBase implements DevSupportManager {
           public void onSuccess() {
             hideDevLoadingView();
             synchronized (DevSupportManagerBase.this) {
-              mBundleStatus.isLastDownloadSucess = true;
+              mBundleStatus.isLastDownloadSuccess = true;
               mBundleStatus.updateTimestamp = System.currentTimeMillis();
             }
             if (mBundleDownloadListener != null) {
@@ -971,7 +1007,7 @@ public abstract class DevSupportManagerBase implements DevSupportManager {
               @Nullable final String status,
               @Nullable final Integer done,
               @Nullable final Integer total) {
-            mDevLoadingViewController.updateProgress(status, done, total);
+            mDevLoadingViewManager.updateProgress(status, done, total);
             if (mBundleDownloadListener != null) {
               mBundleDownloadListener.onProgress(status, done, total);
             }
@@ -981,7 +1017,7 @@ public abstract class DevSupportManagerBase implements DevSupportManager {
           public void onFailure(final Exception cause) {
             hideDevLoadingView();
             synchronized (DevSupportManagerBase.this) {
-              mBundleStatus.isLastDownloadSucess = false;
+              mBundleStatus.isLastDownloadSuccess = false;
             }
             if (mBundleDownloadListener != null) {
               mBundleDownloadListener.onFailure(cause);
@@ -1107,13 +1143,13 @@ public abstract class DevSupportManagerBase implements DevSupportManager {
       if (!mIsReceiverRegistered) {
         IntentFilter filter = new IntentFilter();
         filter.addAction(getReloadAppAction(mApplicationContext));
-        mApplicationContext.registerReceiver(mReloadAppBroadcastReceiver, filter);
+        compatRegisterReceiver(mApplicationContext, mReloadAppBroadcastReceiver, filter, true);
         mIsReceiverRegistered = true;
       }
 
       // show the dev loading if it should be
       if (mDevLoadingViewVisible) {
-        mDevLoadingViewController.showMessage("Reloading...");
+        mDevLoadingViewManager.showMessage("Reloading...");
       }
 
       mDevServerHelper.openPackagerConnection(
@@ -1194,7 +1230,7 @@ public abstract class DevSupportManagerBase implements DevSupportManager {
       hideDevOptionsDialog();
 
       // hide loading view
-      mDevLoadingViewController.hide();
+      mDevLoadingViewManager.hide();
       mDevServerHelper.closePackagerConnection();
     }
   }
@@ -1222,5 +1258,22 @@ public abstract class DevSupportManagerBase implements DevSupportManager {
     }
 
     return mSurfaceDelegateFactory.createSurfaceDelegate(moduleName);
+  }
+
+  /**
+   * Starting with Android 14, apps and services that target Android 14 and use context-registered
+   * receivers are required to specify a flag to indicate whether or not the receiver should be
+   * exported to all other apps on the device: either RECEIVER_EXPORTED or RECEIVER_NOT_EXPORTED
+   *
+   * <p>https://developer.android.com/about/versions/14/behavior-changes-14#runtime-receivers-exported
+   */
+  private void compatRegisterReceiver(
+      Context context, BroadcastReceiver receiver, IntentFilter filter, boolean exported) {
+    if (Build.VERSION.SDK_INT >= 34 && context.getApplicationInfo().targetSdkVersion >= 34) {
+      context.registerReceiver(
+          receiver, filter, exported ? Context.RECEIVER_EXPORTED : Context.RECEIVER_NOT_EXPORTED);
+    } else {
+      context.registerReceiver(receiver, filter);
+    }
   }
 }

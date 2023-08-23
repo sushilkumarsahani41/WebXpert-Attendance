@@ -395,7 +395,9 @@ class _EnrollmentPageState extends State<EnrollmentPage> {
                       padding: const EdgeInsets.symmetric(
                           horizontal: 50, vertical: 10),
                       child: saveclicked
-                          ? const CircularProgressIndicator()
+                          ? const CircularProgressIndicator(
+                              color: Colors.white,
+                            )
                           : const Text(
                               "Enroll Student",
                               style: TextStyle(
@@ -441,7 +443,9 @@ class _EnrollmentPageState extends State<EnrollmentPage> {
       _name.text = '';
       enrollID = '';
       fingerid = false;
-      saveclicked = false;
+      setState(() {
+        saveclicked = false;
+      });
       showSnackbar().ShowSnakbar(context, "Student Enroll Succeessfully");
     });
   }

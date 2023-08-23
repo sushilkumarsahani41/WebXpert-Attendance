@@ -1,5 +1,5 @@
 /*
- * Copyright (c) Facebook, Inc. and its affiliates.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
@@ -10,8 +10,6 @@
 namespace facebook {
 namespace react {
 
-TextLayoutManager::~TextLayoutManager() {}
-
 void *TextLayoutManager::getNativeTextLayoutManager() const {
   return (void *)this;
 }
@@ -19,7 +17,8 @@ void *TextLayoutManager::getNativeTextLayoutManager() const {
 TextMeasurement TextLayoutManager::measure(
     AttributedStringBox attributedStringBox,
     ParagraphAttributes paragraphAttributes,
-    LayoutConstraints layoutConstraints) const {
+    LayoutConstraints layoutConstraints,
+    std::shared_ptr<void>) const {
   TextMeasurement::Attachments attachments;
   for (auto const &fragment : attributedStringBox.getValue().getFragments()) {
     if (fragment.isAttachment()) {
@@ -36,6 +35,13 @@ LinesMeasurements TextLayoutManager::measureLines(
     Size size) const {
   return {};
 };
+
+std::shared_ptr<void> TextLayoutManager::getHostTextStorage(
+    AttributedString attributedString,
+    ParagraphAttributes paragraphAttributes,
+    LayoutConstraints layoutConstraints) const {
+  return nullptr;
+}
 
 } // namespace react
 } // namespace facebook

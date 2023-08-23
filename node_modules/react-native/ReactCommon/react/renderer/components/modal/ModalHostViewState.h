@@ -1,5 +1,5 @@
 /*
- * Copyright (c) Facebook, Inc. and its affiliates.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
@@ -7,9 +7,8 @@
 
 #pragma once
 
+#include <react/renderer/core/graphicsConversions.h>
 #include <react/renderer/graphics/Float.h>
-#include <react/renderer/graphics/Geometry.h>
-#include <react/renderer/graphics/conversions.h>
 
 #ifdef ANDROID
 #include <folly/dynamic.h>
@@ -21,7 +20,7 @@ namespace facebook {
 namespace react {
 
 /*
- * State for <BottomSheetView> component.
+ * State for <ModalHostView> component.
  */
 class ModalHostViewState final {
  public:

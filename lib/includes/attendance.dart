@@ -1,3 +1,4 @@
+import 'dart:html' as html;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:lottie/lottie.dart';
@@ -12,11 +13,19 @@ class AttendancePage extends StatefulWidget {
 }
 
 class _AttendancePageState extends State<AttendancePage> {
+  void openDownloadUrlInNewTab(String url) {
+    html.AnchorElement anchor = html.AnchorElement(href: url)
+      ..target = 'blank'
+      ..click();
+  }
+
   FirebaseFirestore db = FirebaseFirestore.instance;
   String _prn = '';
   late Stream<QuerySnapshot<Map<String, dynamic>>> streamQuery;
   TextEditingController _searchController = TextEditingController();
   TextEditingController _dateController = TextEditingController();
+  TextEditingController _fromDateController = TextEditingController();
+  TextEditingController _toDateController = TextEditingController();
 
   var selDepartment = 'Department';
   var selDepartmentId = 'Department';
@@ -47,21 +56,27 @@ class _AttendancePageState extends State<AttendancePage> {
   }
 
   get_Sublist(id) async {
-    var da = await db.collection('departments').doc(id).get();
-    var doc = da.data()!;
-    var data = doc['subjects'] ?? [];
-    var res = ["Subject"];
-    if (data.length == 0) {
+    if (id == 'Department') {
       setState(() {
-        SubMap = res;
+        SubMap = ["Subject"];
       });
     } else {
-      setState(() {
-        for (int i = 0; i < data.length; i++) {
-          res.add(data[i]);
-        }
-        SubMap = res;
-      });
+      var da = await db.collection('departments').doc(id).get();
+      var doc = da.data()!;
+      var data = doc['subjects'] ?? [];
+      var res = ["Subject"];
+      if (data.length == 0) {
+        setState(() {
+          SubMap = res;
+        });
+      } else {
+        setState(() {
+          for (int i = 0; i < data.length; i++) {
+            res.add(data[i]);
+          }
+          SubMap = res;
+        });
+      }
     }
   }
 
@@ -189,6 +204,9 @@ class _AttendancePageState extends State<AttendancePage> {
                               controller: _searchController),
                         ),
                         InkWell(
+                          onTap: () {
+                            exportFn();
+                          },
                           child: Container(
                             decoration: BoxDecoration(
                                 color: kPrimaryColor,
@@ -298,7 +316,7 @@ class _AttendancePageState extends State<AttendancePage> {
                               });
                             },
                             decoration: InputDecoration(
-                              hintText: "Date in M/D/Y",
+                              hintText: "Date in MM/DD/YYYY",
                               prefixIconConstraints: const BoxConstraints(
                                 // minWidth: 2,
                                 minHeight: 2,
@@ -313,8 +331,16 @@ class _AttendancePageState extends State<AttendancePage> {
                                             2000), //DateTime.now() - not to allow to choose before today.
                                         lastDate: DateTime(2101));
                                     if (pickedDate != null) {
+                                      String formattedMonth = pickedDate.month
+                                          .toString()
+                                          .padLeft(2, '0');
+                                      String formattedDay = pickedDate.day
+                                          .toString()
+                                          .padLeft(2, '0');
+                                      String formattedYear =
+                                          pickedDate.year.toString();
                                       String formattedDate =
-                                          "${pickedDate.month}/${pickedDate.day}/${pickedDate.year}";
+                                          "$formattedMonth/$formattedDay/$formattedYear";
                                       setState(() {
                                         _dateController.text = formattedDate;
                                         selDate = formattedDate;
@@ -327,7 +353,6 @@ class _AttendancePageState extends State<AttendancePage> {
                                       Icons.calendar_today,
                                       size: 20,
                                     ),
-                                    
                                   )),
                               contentPadding:
                                   const EdgeInsets.only(left: 20, right: 30),
@@ -336,18 +361,6 @@ class _AttendancePageState extends State<AttendancePage> {
                             controller: _dateController,
                           ),
                         ),
-                        Row(
-                          children: [
-                            IconButton(
-                                hoverColor: Colors.transparent,
-                                onPressed: () {},
-                                icon: const Icon(Icons.edit)),
-                            IconButton(
-                                hoverColor: Colors.transparent,
-                                onPressed: () {},
-                                icon: const Icon(Icons.delete))
-                          ],
-                        )
                       ],
                     ),
                   ),
@@ -376,7 +389,7 @@ class _AttendancePageState extends State<AttendancePage> {
                                   if (_prn.isEmpty) {
                                     return Padding(
                                       padding: const EdgeInsets.symmetric(
-                                          vertical: 10),
+                                          vertical: 10, horizontal: 20),
                                       child: Container(
                                         width: double.maxFinite,
                                         decoration: BoxDecoration(
@@ -421,8 +434,7 @@ class _AttendancePageState extends State<AttendancePage> {
                                                 flex: 1,
                                                 child: Text(snapshot
                                                     .data!.docs[index]
-                                                    .data()['department']
-                                                    .toString()),
+                                                    .data()['deparment']),
                                               ),
                                               Expanded(
                                                 flex: 1,
@@ -436,16 +448,6 @@ class _AttendancePageState extends State<AttendancePage> {
                                                     .data!.docs[index]
                                                     .data()['date']),
                                               ),
-                                              Row(
-                                                children: [
-                                                  IconButton(
-                                                      onPressed: () {},
-                                                      icon: Icon(Icons.edit)),
-                                                  IconButton(
-                                                      onPressed: () {},
-                                                      icon: Icon(Icons.delete))
-                                                ],
-                                              )
                                             ],
                                           ),
                                         ),
@@ -457,7 +459,7 @@ class _AttendancePageState extends State<AttendancePage> {
                                       .startsWith(_prn)) {
                                     return Padding(
                                       padding: const EdgeInsets.symmetric(
-                                          vertical: 10),
+                                          vertical: 10, horizontal: 20),
                                       child: Container(
                                         width: double.maxFinite,
                                         decoration: BoxDecoration(
@@ -517,27 +519,13 @@ class _AttendancePageState extends State<AttendancePage> {
                                                     .data!.docs[index]
                                                     .data()['date']),
                                               ),
-                                              Row(
-                                                children: [
-                                                  IconButton(
-                                                      onPressed: () {},
-                                                      icon: Icon(Icons.edit)),
-                                                  IconButton(
-                                                      onPressed: () {},
-                                                      icon: Icon(Icons.delete))
-                                                ],
-                                              )
                                             ],
                                           ),
                                         ),
                                       ),
                                     );
                                   }
-                                  return Container(
-                                    child: Center(
-                                      child: Text("Student not found...!"),
-                                    ),
-                                  );
+                                  return Container();
                                 },
                               );
                       }),
@@ -548,10 +536,400 @@ class _AttendancePageState extends State<AttendancePage> {
     );
   }
 
+  exportFn() {
+    showDialog(
+        context: context,
+        builder: (context) {
+          return StatefulBuilder(builder: (context, setState) {
+            return AlertDialog(
+              content: Container(
+                width: 450,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text(
+                      "Export Records",
+                      style: TextStyle(
+                        color: Colors.black87,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 20,
+                      ),
+                    ),
+                    SizedBox(
+                      height: 10,
+                    ),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      children: [
+                        Text(
+                          "Select Department: ",
+                          style: TextStyle(
+                              fontSize: 16, fontWeight: FontWeight.w700),
+                        ),
+                        SizedBox(
+                          height: 10,
+                        ),
+                        Container(
+                          width: 250,
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(30),
+                            boxShadow: const [
+                              BoxShadow(
+                                blurRadius: 2,
+                                spreadRadius: 0.2,
+                                color: Colors.grey,
+                              )
+                            ],
+                          ),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 20,
+                            ),
+                            child: DropdownButton(
+                                underline: SizedBox(),
+                                value: selDepartment,
+                                style: const TextStyle(
+                                    color: Colors.black,
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold),
+                                items: Deplist.map(
+                                    (item) => DropdownMenuItem<String>(
+                                        value: item,
+                                        child: Text(
+                                          item,
+                                          textAlign: TextAlign.center,
+                                        ))).toList(),
+                                onChanged: (value) {
+                                  setState(() {
+                                    selDate = "Date";
+                                    _dateController.text = "Date";
+                                    selDepartmentId = DepMap[value].toString();
+                                    print(DepMap[value].toString());
+                                    selDepartment = value!;
+                                    selSubject = "Subject";
+                                    if (selDepartmentId != "Department") {
+                                      get_Sublist(selDepartmentId);
+                                      selSubject = "Subject";
+                                    }
+                                  });
+                                }),
+                          ),
+                        ),
+                      ],
+                    ),
+                    SizedBox(
+                      height: 20,
+                    ),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                      children: [
+                        Text(
+                          "Select Subject: ",
+                          style: TextStyle(
+                              fontSize: 16, fontWeight: FontWeight.w700),
+                        ),
+                        SizedBox(
+                          height: 10,
+                        ),
+                        Container(
+                          width: 250,
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(30),
+                            boxShadow: const [
+                              BoxShadow(
+                                blurRadius: 2,
+                                spreadRadius: 0.2,
+                                color: Colors.grey,
+                              )
+                            ],
+                          ),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 20,
+                            ),
+                            child: DropdownButton(
+                                underline: SizedBox(),
+                                value: selSubject,
+                                style: TextStyle(
+                                    color: Colors.black,
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold),
+                                items: SubMap.map(
+                                    (item) => DropdownMenuItem<String>(
+                                        value: item,
+                                        child: Text(
+                                          item,
+                                          textAlign: TextAlign.center,
+                                        ))).toList(),
+                                onChanged: (value) {
+                                  setState(() {
+                                    selDate = "Date";
+                                    _dateController.text = "Date";
+                                    selSubject = value!;
+                                  });
+                                }),
+                          ),
+                        ),
+                      ],
+                    ),
+                    SizedBox(
+                      height: 20,
+                    ),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                      children: [
+                        Text(
+                          "Select Date From: ",
+                          style: TextStyle(
+                              fontSize: 16, fontWeight: FontWeight.w700),
+                        ),
+                        SizedBox(
+                          height: 10,
+                        ),
+                        Container(
+                          width: 250,
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(30),
+                            boxShadow: const [
+                              BoxShadow(
+                                blurRadius: 2,
+                                spreadRadius: 0.2,
+                                color: Colors.grey,
+                              )
+                            ],
+                          ),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 20,
+                            ),
+                            child: TextField(
+                              decoration: InputDecoration(
+                                hintText: "MM-DD-YYYY",
+                                prefixIconConstraints: const BoxConstraints(
+                                  // minWidth: 2,
+                                  minHeight: 2,
+                                ),
+                                prefixIcon: InkWell(
+                                    onTap: () async {
+                                      var pickedDate = await showDatePicker(
+                                          context: context,
+                                          initialDate:
+                                              DateTime.now(), //get today's date
+                                          firstDate: DateTime(
+                                              2000), //DateTime.now() - not to allow to choose before today.
+                                          lastDate: DateTime(2101));
+                                      if (pickedDate != null) {
+                                        String formattedMonth = pickedDate.month
+                                            .toString()
+                                            .padLeft(2, '0');
+                                        String formattedDay = pickedDate.day
+                                            .toString()
+                                            .padLeft(2, '0');
+                                        String formattedYear =
+                                            pickedDate.year.toString();
+                                        String formattedDate =
+                                            "$formattedMonth-$formattedDay-$formattedYear";
+                                        setState(() {
+                                          _fromDateController.text =
+                                              formattedDate;
+                                        });
+                                      }
+                                    },
+                                    child: const Padding(
+                                      padding: EdgeInsets.only(right: 8.0),
+                                      child: Icon(
+                                        Icons.calendar_today,
+                                        size: 20,
+                                      ),
+                                    )),
+                                contentPadding:
+                                    const EdgeInsets.only(left: 20, right: 30),
+                                border: InputBorder.none,
+                              ),
+                              controller: _fromDateController,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    SizedBox(
+                      height: 20,
+                    ),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                      children: [
+                        Text(
+                          "Select Date To: ",
+                          style: TextStyle(
+                              fontSize: 16, fontWeight: FontWeight.w700),
+                        ),
+                        SizedBox(
+                          height: 10,
+                        ),
+                        Container(
+                          width: 250,
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(30),
+                            boxShadow: const [
+                              BoxShadow(
+                                blurRadius: 2,
+                                spreadRadius: 0.2,
+                                color: Colors.grey,
+                              )
+                            ],
+                          ),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 20,
+                            ),
+                            child: TextField(
+                              decoration: InputDecoration(
+                                hintText: "MM-DD-YYYY",
+                                prefixIconConstraints: const BoxConstraints(
+                                  // minWidth: 2,
+                                  minHeight: 2,
+                                ),
+                                prefixIcon: InkWell(
+                                    onTap: () async {
+                                      var pickedDate = await showDatePicker(
+                                          context: context,
+                                          initialDate:
+                                              DateTime.now(), //get today's date
+                                          firstDate: DateTime(
+                                              2000), //DateTime.now() - not to allow to choose before today.
+                                          lastDate: DateTime(2101));
+                                      if (pickedDate != null) {
+                                        String formattedMonth = pickedDate.month
+                                            .toString()
+                                            .padLeft(2, '0');
+                                        String formattedDay = pickedDate.day
+                                            .toString()
+                                            .padLeft(2, '0');
+                                        String formattedYear =
+                                            pickedDate.year.toString();
+                                        String formattedDate =
+                                            "$formattedMonth-$formattedDay-$formattedYear";
+                                        setState(() {
+                                          _toDateController.text =
+                                              formattedDate;
+                                        });
+                                      }
+                                    },
+                                    child: const Padding(
+                                      padding: EdgeInsets.only(right: 8.0),
+                                      child: Icon(
+                                        Icons.calendar_today,
+                                        size: 20,
+                                      ),
+                                    )),
+                                contentPadding:
+                                    const EdgeInsets.only(left: 20, right: 30),
+                                border: InputBorder.none,
+                              ),
+                              controller: _toDateController,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    SizedBox(
+                      height: 30,
+                    ),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                      children: [
+                        InkWell(
+                          onTap: () {
+                            Navigator.of(context).pop();
+                          },
+                          child: Container(
+                            decoration: BoxDecoration(
+                                color: Colors.white,
+                                boxShadow: const [
+                                  BoxShadow(
+                                    blurRadius: 5,
+                                    spreadRadius: 0.2,
+                                    color: Colors.grey,
+                                  )
+                                ],
+                                borderRadius: BorderRadius.circular(30)),
+                            child: const Center(
+                                child: Padding(
+                              padding: EdgeInsets.symmetric(
+                                  horizontal: 50, vertical: 10),
+                              child: Text(
+                                "Cancel",
+                                style: TextStyle(
+                                    fontSize: 18, fontWeight: FontWeight.w600),
+                              ),
+                            )),
+                          ),
+                        ),
+                        InkWell(
+                          onTap: () {
+                            if (selDepartment != 'Department') {
+                              if (selSubject != 'Subject') {
+                                if (_fromDateController.text.isNotEmpty) {
+                                  if (_toDateController.text.isNotEmpty) {
+                                    var toDate = _toDateController.text;
+                                    var fromDate = _fromDateController.text;
+                                    var url =
+                                        'https://api.webxpert.in/getRecords?key=9tVwVRQhXEZG8u4f3pJTPeFoleAskSSPvcF_kAqGv08ZGINTiFIkLZ6AOcKQumXoOUO6ZazHYoo68ype1uyGiA&depid=$selDepartmentId&fromDate=$fromDate&toDate=$toDate&sub=$selSubject';
+                                    openDownloadUrlInNewTab(url);
+                                    Navigator.of(context).pop();
+                                  }
+                                }
+                              }
+                            }
+                          },
+                          child: Container(
+                            decoration: BoxDecoration(
+                                color: kPrimaryColor,
+                                boxShadow: const [
+                                  BoxShadow(
+                                    blurRadius: 5,
+                                    spreadRadius: 0.2,
+                                    color: Colors.grey,
+                                  )
+                                ],
+                                borderRadius: BorderRadius.circular(30)),
+                            child: const Center(
+                                child: Padding(
+                              padding: EdgeInsets.symmetric(
+                                  horizontal: 50, vertical: 10),
+                              child: Text(
+                                "Export",
+                                style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w600),
+                              ),
+                            )),
+                          ),
+                        )
+                      ],
+                    )
+                  ],
+                ),
+              ),
+            );
+          });
+        });
+  }
+
   toDatefromTime(data) {
     Timestamp timestampFromFirestore = data;
     DateTime dateTime = timestampFromFirestore.toDate();
-    String formattedDate = "${dateTime.month}/${dateTime.day}/${dateTime.year}";
+
+    String formattedMonth = dateTime.month.toString().padLeft(2, '0');
+    String formattedDay = dateTime.day.toString().padLeft(2, '0');
+    String formattedYear = dateTime.year.toString();
+
+    String formattedDate = "$formattedMonth/$formattedDay/$formattedYear";
     return formattedDate;
   }
 }
